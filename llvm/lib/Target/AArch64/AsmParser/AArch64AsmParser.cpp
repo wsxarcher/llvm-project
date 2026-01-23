@@ -3883,6 +3883,7 @@ static const struct Extension {
     {"mec", {AArch64::FeatureMEC}},
     {"the", {AArch64::FeatureTHE}},
     {"d128", {AArch64::FeatureD128}},
+    {"sys128", {AArch64::FeatureSYS128}},
     {"lse128", {AArch64::FeatureLSE128}},
     {"ite", {AArch64::FeatureITE}},
     {"cssc", {AArch64::FeatureCSSC}},
@@ -4271,15 +4272,22 @@ bool AArch64AsmParser::parseSyspAlias(StringRef Name, SMLoc NameLoc,
       return TokError("invalid operand for TLBIP instruction");
     const AArch64TLBIP::TLBIP TLBIP(
         TLBIPorig->Name, TLBIPorig->Encoding | (HasnXSQualifier ? (1 << 7) : 0),
-        TLBIPorig->NeedsReg, TLBIPorig->OptionalReg,
+        TLBIPorig->NeedsReg, TLBIPorig->OptionalReg, TLBIPorig->AllowTLBID,
         HasnXSQualifier
             ? TLBIPorig->FeaturesRequired | FeatureBitset({AArch64::FeatureXS})
             : TLBIPorig->FeaturesRequired);
     if (!TLBIP.haveFeatures(getSTI().getFeatureBits())) {
-      std::string Name =
-          std::string(TLBIP.Name) + (HasnXSQualifier ? "nXS" : "");
-      std::string Str("TLBIP " + Name + " requires: ");
-      setRequiredFeatureString(TLBIP.getRequiredFeatures(), Str);
+      FeatureBitset Required = TLBIP.getRequiredFeatures();
+      FeatureBitset Active = getSTI().getFeatureBits();
+      FeatureBitset Missing = Required & ~Active;
+      if (TLBIP.AllowTLBID && Missing[AArch64::FeatureD128]) {
+        // Remove +d128 when +tlbid is allowed
+        Missing.reset(AArch64::FeatureD128);
+        if (!Active[AArch64::FeatureTLBID])
+          Missing.set(AArch64::FeatureTLBID);
+      }
+      std::string Str("instruction requires: ");
+      setRequiredFeatureString(Missing, Str);
       return TokError(Str);
     }
     createSysAlias(TLBIP.Encoding, Operands, S);

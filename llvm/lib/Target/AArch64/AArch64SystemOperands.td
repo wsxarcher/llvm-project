@@ -856,7 +856,7 @@ def : TIndex<"nb", 0b1>;
 //===----------------------------------------------------------------------===//
 
 class TLBICommon<string name, bits<3> op1, bits<4> crn, bits<4> crm,
-                 bits<3> op2, bit needsreg, bit optionalreg> {
+                 bits<3> op2, bit needsreg, bit optionalreg, bit tlbid> {
   string Name = name;
   bits<14> Encoding;
   let Encoding{13-11} = op1;
@@ -864,6 +864,7 @@ class TLBICommon<string name, bits<3> op1, bits<4> crn, bits<4> crm,
   let Encoding{6-3} = crm;
   let Encoding{2-0} = op2;
   bit NeedsReg = needsreg;
+  bit TLBID = tlbid;
   bit OptionalReg = optionalreg;
   list<string> Requires = [];
   list<string> ExtraRequires = [];
@@ -872,17 +873,21 @@ class TLBICommon<string name, bits<3> op1, bits<4> crn, bits<4> crm,
 
 class TLBIEntry<string name, bits<3> op1, bits<4> crn, bits<4> crm,
                 bits<3> op2, bit needsreg, bit optionalreg>
-  : TLBICommon<name, op1, crn, crm, op2, needsreg, optionalreg>;
+  : TLBICommon<name, op1, crn, crm, op2, needsreg, optionalreg, 0>;
 
 class TLBIPEntry<string name, bits<3> op1, bits<4> crn, bits<4> crm,
-                 bits<3> op2, bit needsreg, bit optionalreg>
-  : TLBICommon<name, op1, crn, crm, op2, needsreg, optionalreg>;
+                 bits<3> op2, bit needsreg, bit optionalreg, bit tlbid>
+  : TLBICommon<name, op1, crn, crm, op2, needsreg, optionalreg, tlbid>;
 
-multiclass TLBITableBase {
+multiclass TLBITableBase<list<string> ExtraFields> {
   def NAME # Table : GenericTable {
     let FilterClass = NAME # "Entry";
     let CppTypeName = NAME;
-    let Fields = ["Name", "Encoding", "NeedsReg", "OptionalReg", "RequiresStr"];
+    let Fields = !listconcat(
+      ["Name", "Encoding", "NeedsReg", "OptionalReg"],
+      ExtraFields,
+      ["RequiresStr"]
+    );
     let PrimaryKey = ["Encoding"];
     let PrimaryKeyName = "lookup" # NAME # "ByEncoding";
   }
@@ -892,21 +897,27 @@ multiclass TLBITableBase {
   }
 }
 
-defm TLBI  : TLBITableBase;
-defm TLBIP : TLBITableBase;
+defm TLBI  : TLBITableBase<[]>;
+defm TLBIP : TLBITableBase<["TLBID"]>;
 
 multiclass TLBI<string name, bit hasTLBIP, bits<3> op1, bits<4> crn, bits<4> crm,
              bits<3> op2, bit needsreg = 1, bit optionalreg = 0> {
+  defvar allowTLBID = !or(!or(!ne(!find(name, "E1IS"), -1),
+                              !ne(!find(name, "E1OS"), -1)),
+                          !or(!ne(!find(name, "E2IS"), -1),
+                              !ne(!find(name, "E2OS"), -1)));
   def : TLBIEntry<name, op1, crn, crm, op2, needsreg, optionalreg>;
   def : TLBIEntry<!strconcat(name, "nXS"), op1, crn, crm, op2, needsreg, optionalreg> {
     let Encoding{7} = 1;
     let ExtraRequires = ["AArch64::FeatureXS"];
   }
   if !eq(hasTLBIP, true) then {
-    def : TLBIPEntry<name, op1, crn, crm, op2, needsreg, optionalreg>;
-    def : TLBIPEntry<!strconcat(name, "nXS"), op1, crn, crm, op2, needsreg, optionalreg> {
+    def : TLBIPEntry<name, op1, crn, crm, op2, needsreg, optionalreg, allowTLBID> {
+      let ExtraRequires = ["AArch64::FeatureD128"];
+    }
+    def : TLBIPEntry<!strconcat(name, "nXS"), op1, crn, crm, op2, needsreg, optionalreg, allowTLBID> {
       let Encoding{7} = 1;
-      let ExtraRequires = ["AArch64::FeatureXS"];
+      let ExtraRequires = ["AArch64::FeatureD128", "AArch64::FeatureXS"];
     }
   }
 }
@@ -1002,7 +1013,7 @@ defm : TLBI<"RVALE3OS",     1, 0b110, 0b1000, 0b0101, 0b101>;
 
 // Armv9-A Realm Management Extension TLBI Instructions
 let Requires = ["AArch64::FeatureRME"] in {
-//                   hasTLBIP  op1    CRn     CRm     op2    needsreg
+//                   hasTLBIP  op1    CRn     CRm     op2    needsreg, optreg
 defm : TLBI<"RPAOS",        0, 0b110, 0b1000, 0b0100, 0b011>;
 defm : TLBI<"RPALOS",       0, 0b110, 0b1000, 0b0100, 0b111>;
 defm : TLBI<"PAALLOS",      0, 0b110, 0b1000, 0b0001, 0b100, 0, 0>;
