@@ -1323,7 +1323,10 @@ static bool tryARM64PackedUnwind(WinEH::FrameInfo *info, uint32_t FuncLength,
   if (RegF > 0)
     RegF--; // Convert from actual number of registers, to value stored
   assert(FuncLength <= 0x7FF && "FuncLength should have been checked earlier");
-  int Flag = 0x01; // Function segments not supported yet
+  // Flag 0: unpacked unwind record
+  // Flag 1: packed unwind record with 1 prolog/epilog
+  // Flag 2: packed unwind record without prolog/epilog for separated blocks
+  int Flag = info->Fragment ? 0x02 : 0x01;
   int CR = PAC ? 2 : FPLRPair ? 3 : StandaloneLR ? 1 : 0;
   info->PackedInfo |= Flag << 0;
   info->PackedInfo |= (FuncLength & 0x7FF) << 2;
@@ -1454,7 +1457,7 @@ static void ARM64FindSegmentsInFunction(MCStreamer &streamer,
   // or the only segment otherwise.
   auto LastSeg =
       WinEH::FrameInfo::Segment(SegOffset, RawFuncLength - SegOffset,
-                                /* HasProlog */!SegOffset);
+                                /* HasProlog */!SegOffset && !info->Fragment /* No prolog for function fragments */);
   for (; E < Epilogs.size(); ++E)
     LastSeg.Epilogs[Epilogs[E].Start] = Epilogs[E].Offset;
   info->Segments.push_back(LastSeg);
@@ -1481,7 +1484,7 @@ static void ARM64EmitUnwindInfoForSegment(MCStreamer &streamer,
   uint32_t PrologCodeBytes = info->PrologCodeBytes;
 
   int PackedEpilogOffset = HasEpilogs ?
-      checkARM64PackedEpilog(streamer, info, &Seg, PrologCodeBytes) : -1;
+      checkARM64PackedEpilog(streamer, info, &Seg, PrologCodeBytes) : (HasProlog ? -1 : 0);
 
   // TODO:
   // 1. Enable packed unwind info (.pdata only) for multi-segment functions.

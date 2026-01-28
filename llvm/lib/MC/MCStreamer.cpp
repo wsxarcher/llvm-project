@@ -809,6 +809,13 @@ void MCStreamer::emitWinCFISplitChained(SMLoc Loc) {
       CurFrame->Function, Label, ChainedParent));
   CurrentWinFrameInfo = WinFrameInfos.back().get();
   CurrentWinFrameInfo->TextSection = getCurrentSectionOnly();
+
+  // Chained regions need the parent's instructions on Win ARM64 to emit
+  // the right prolog/epilog sequence. This assume only one region in the parent
+  // (IE: Shrink-wrapping not yet supported).
+  // add if context is ARM64
+  CurrentWinFrameInfo->Instructions = ChainedParent->Instructions;
+  CurrentWinFrameInfo->Fragment = true;
 }
 
 void MCStreamer::emitWinEHHandler(const MCSymbol *Sym, bool Unwind, bool Except,
