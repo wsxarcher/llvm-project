@@ -231,6 +231,12 @@ static void EmitUnwindInfo(MCStreamer &streamer, WinEH::FrameInfo *info) {
   if (info->Symbol)
     return;
 
+  if (info->ChainedParent) {
+    // On Win x64, we just point to the parent and don't need to describe the
+    // prolog
+    info->Instructions.clear();
+  }
+
   MCContext &context = streamer.getContext();
   MCObjectStreamer *OS = (MCObjectStreamer *)(&streamer);
   MCSymbol *Label = context.createTempSymbol();
