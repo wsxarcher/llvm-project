@@ -7,7 +7,7 @@
 // CHECK: @align = {{(dso_local )?}}global i8 [[ALIGN:[0-9]+]]
 // ITANIUM: @.str = private unnamed_addr constant [6 x i8] c"hello\00"
 // MSABI: @"??_C@_05CJBACGMB@hello?$AA@" = linkonce_odr dso_local unnamed_addr constant [6 x i8] c"hello\00", comdat, align 1
-// ITANIUM: @f1.x = internal global ptr @.str
+// ITANIUM: @f1.x = internal global ptr @.str, align 8
 // MSABI: @f1.x = internal global ptr @"??_C@_05CJBACGMB@hello?$AA@"
 // CHECK: @f2.x = internal global [6 x i8] c"hello\00", align [[ALIGN]]
 // CHECK: @f3.x = internal global [8 x i8] c"hello\00\00\00", align [[ALIGN]]

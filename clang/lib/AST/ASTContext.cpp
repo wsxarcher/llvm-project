@@ -1837,6 +1837,7 @@ CharUnits ASTContext::getDeclAlign(const Decl *D, bool ForAlignof) const {
         uint64_t TypeSize =
             !BaseT->isIncompleteType() ? getTypeSize(T.getTypePtr()) : 0;
         Align = std::max(Align, getMinGlobalAlignOfVar(TypeSize, VD));
+        Align = std::max(Align, getLargeGlobalPreferredAlign(TypeSize, Align));
       }
 
     // Fields can be subject to extra alignment constraints, like if
@@ -2640,6 +2641,21 @@ CharUnits ASTContext::getTypeUnadjustedAlignInChars(QualType T) const {
 }
 CharUnits ASTContext::getTypeUnadjustedAlignInChars(const Type *T) const {
   return toCharUnitsFromBits(getTypeUnadjustedAlign(T));
+}
+
+/// getLargeGlobalPreferredAlign - Return the "preferred" alignment of the specified
+/// global variable in bits. Only variables larger than the specifed "LargeGlobalMinWidth" will
+/// be aligned using the "LargeGlobalAlign" alignment - typically 16 bytes
+unsigned ASTContext::getLargeGlobalPreferredAlign(uint64_t TypeSize, unsigned Align) const {
+  if (TypeSize >= Target->getLargeGlobalMinWidth())
+    return Target->getLargeGlobalAlign();
+  else if (TypeSize >= 128)
+    return (unsigned)64;
+  else if (TypeSize >= 32)
+    return (unsigned)32;
+  else
+    return Align;
+
 }
 
 /// getPreferredTypeAlign - Return the "preferred" alignment of the specified
