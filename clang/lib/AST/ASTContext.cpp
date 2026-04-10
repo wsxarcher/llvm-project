@@ -1837,9 +1837,19 @@ CharUnits ASTContext::getDeclAlign(const Decl *D, bool ForAlignof) const {
         uint64_t TypeSize =
             !BaseT->isIncompleteType() ? getTypeSize(T.getTypePtr()) : 0;
         Align = std::max(Align, getMinGlobalAlignOfVar(TypeSize, VD));
-        // Do not increase alignment for externally defined variables
-        // to not break ABI compatibility.
-        if (VD->hasDefinition())
+        // Only increase alignment if it can safely control the
+        // variable's placement. This mirrors the conditions in
+        // GlobalObject::canIncreaseAlignment:
+        // - Must be a strong definition (not a declaration or weak)
+        // - Must not have a section attribute (may be densely packed)
+        // - On ELF with PIC (not PIE), default-visibility symbols may be
+        //   COPY-relocated, so the executable controls their alignment.
+        bool IsAlwaysLocal = VD->hasDefinition() && !VD->isWeak() &&
+                           !VD->hasAttr<SectionAttr>();
+        bool IsELFCopyReloc = Target->getTriple().isOSBinFormatELF() &&
+            LangOpts.PICLevel && !LangOpts.PIE &&
+            VD->getVisibility() == DefaultVisibility;
+        if (IsAlwaysLocal && !IsELFCopyReloc)
           Align =
               std::max(Align, getLargeGlobalPreferredAlign(TypeSize, Align));
       }
