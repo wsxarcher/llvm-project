@@ -1844,11 +1844,11 @@ CharUnits ASTContext::getDeclAlign(const Decl *D, bool ForAlignof) const {
         // - Must not have a section attribute (may be densely packed)
         // - On ELF with PIC (not PIE), default-visibility symbols may be
         //   COPY-relocated, so the executable controls their alignment.
-        bool IsAlwaysLocal = VD->hasDefinition() && !VD->isWeak() &&
-                           !VD->hasAttr<SectionAttr>();
+        bool IsAlwaysLocal =
+            VD->hasDefinition() && !VD->isWeak() && !VD->hasAttr<SectionAttr>();
         bool IsELFCopyReloc = Target->getTriple().isOSBinFormatELF() &&
-            LangOpts.PICLevel && !LangOpts.PIE &&
-            VD->getVisibility() == DefaultVisibility;
+                              LangOpts.PICLevel && !LangOpts.PIE &&
+                              VD->getVisibility() == DefaultVisibility;
         if (IsAlwaysLocal && !IsELFCopyReloc)
           Align =
               std::max(Align, getLargeGlobalPreferredAlign(TypeSize, Align));
