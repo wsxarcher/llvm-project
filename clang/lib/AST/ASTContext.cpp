@@ -1837,7 +1837,11 @@ CharUnits ASTContext::getDeclAlign(const Decl *D, bool ForAlignof) const {
         uint64_t TypeSize =
             !BaseT->isIncompleteType() ? getTypeSize(T.getTypePtr()) : 0;
         Align = std::max(Align, getMinGlobalAlignOfVar(TypeSize, VD));
-        Align = std::max(Align, getLargeGlobalPreferredAlign(TypeSize, Align));
+        // Do not increase alignment for externally defined variables
+        // to not break ABI compatibility.
+        if (VD->hasDefinition())
+          Align =
+              std::max(Align, getLargeGlobalPreferredAlign(TypeSize, Align));
       }
 
     // Fields can be subject to extra alignment constraints, like if
