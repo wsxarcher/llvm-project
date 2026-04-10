@@ -853,8 +853,8 @@ public:
   unsigned getLargeArrayMinWidth() const { return LargeArrayMinWidth; }
   unsigned getLargeArrayAlign() const { return LargeArrayAlign; }
 
-  // getLargeGlobalAlign/getLargeGlobalMinWidth - Return the minimum global size that is
-  // 'large' and its alignment.
+  // getLargeGlobalAlign/getLargeGlobalMinWidth - Return the minimum global size
+  // that is 'large' and its alignment.
   unsigned getLargeGlobalMinWidth() const { return LargeGlobalMinWidth; }
   unsigned getLargeGlobalAlign() const { return LargeGlobalAlign; }
 
