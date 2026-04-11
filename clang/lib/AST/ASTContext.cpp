@@ -1837,15 +1837,20 @@ CharUnits ASTContext::getDeclAlign(const Decl *D, bool ForAlignof) const {
         uint64_t TypeSize =
             !BaseT->isIncompleteType() ? getTypeSize(T.getTypePtr()) : 0;
         Align = std::max(Align, getMinGlobalAlignOfVar(TypeSize, VD));
-        // Only increase alignment if it can safely control the
+        // Only increase alignment if the compiler can safely control the
         // variable's placement. This mirrors the conditions in
         // GlobalObject::canIncreaseAlignment:
-        // - Must be a strong definition (not a declaration or weak)
+        // - Must have a non-interposable definition (GVA_Internal or
+        //   GVA_StrongExternal). All other GVA linkages map to LLVM
+        //   linkages where canIncreaseAlignment returns false.
+        // - Must not have __attribute__((weak)), this is applied in
+        //   CodeGen and not reflected in GVA linkage.
         // - Must not have a section attribute (may be densely packed)
         // - On ELF with PIC (not PIE), default-visibility symbols may be
         //   COPY-relocated, so the executable controls their alignment.
-        bool IsAlwaysLocal =
-            VD->hasDefinition() && !VD->isWeak() && !VD->hasAttr<SectionAttr>();
+        bool IsExactDef = VD->hasDefinition() && !VD->isWeak() &&
+                          isUniqueGVALinkage(GetGVALinkageForVariable(VD));
+        bool IsAlwaysLocal = IsExactDef && !VD->hasAttr<SectionAttr>();
         bool IsELFCopyReloc = Target->getTriple().isOSBinFormatELF() &&
                               LangOpts.PICLevel && !LangOpts.PIE &&
                               VD->getVisibility() == DefaultVisibility;
